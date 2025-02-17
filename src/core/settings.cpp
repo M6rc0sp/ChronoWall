@@ -11,32 +11,16 @@ Settings::~Settings() {
     m_periods.clear();
 }
 
+// Remover a definição duplicada do construtor Settings::Settings()
+
 Settings& Settings::instance() {
     static Settings instance;
     return instance;
 }
 
 bool Settings::load() {
-    qDebug() << QObject::tr("Loading settings from file:") << settings.fileName();
+    qDebug() << QObject::tr("Loading settings from file: %1").arg(settings.fileName());
     m_periods.clear();
-
-    auto createDefaultPeriod = [this]() {
-        ChronoPeriod defaultPeriod;
-        defaultPeriod.startTime = QTime(0, 0);
-        defaultPeriod.endTime = QTime(23, 59);
-        
-        QString savedWallpaper = settings.value("lastWallpaper").toString();
-        if (!savedWallpaper.isEmpty() && QFile::exists(savedWallpaper)) {
-            defaultPeriod.wallpaper = savedWallpaper;
-        } else {
-            defaultPeriod.wallpaper = QDir::homePath() + "/Imagens/wallpaper.jpg";
-        }
-        
-        settings.remove("periods");
-        m_periods.append(defaultPeriod);
-        save();
-        return true;
-    };
 
     int size = settings.beginReadArray("periods");
     bool hasValidPeriods = false;
@@ -59,8 +43,7 @@ bool Settings::load() {
     settings.endArray();
     
     if (!hasValidPeriods) {
-        qDebug() << QObject::tr("No valid periods found, creating default...");
-        return createDefaultPeriod();
+        qDebug() << QObject::tr("No valid periods found in settings file.");
     }
 
     return true;
@@ -71,6 +54,8 @@ bool Settings::save() {
         qWarning() << QObject::tr("No periods to save!");
         return false;
     }
+
+    qDebug() << QObject::tr("Saving settings to: %1").arg(settings.fileName());
 
     settings.beginWriteArray("periods");
     for (int i = 0; i < m_periods.size(); ++i) {

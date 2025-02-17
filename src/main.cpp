@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     
     // Impedir que o app feche quando a última janela for fechada
-    app.setQuitOnLastWindowClosed(false);
+    // app.setQuitOnLastWindowClosed(false);
     
     // Carregar traduções
     QTranslator translator;
@@ -110,11 +110,9 @@ int main(int argc, char *argv[]) {
         qDebug() << QObject::tr("Starting in daemon mode...");
 
         // Iniciar o serviço em um processo separado
-        QProcess daemonProcess;
-        daemonProcess.startDetached(QCoreApplication::applicationFilePath(), {"--daemon"});
-        
-        qDebug() << QObject::tr("Service started in background.");
-        return 0;
+        ChronoWallService::instance();
+        qDebug() << QObject::tr("ChronoWallService instance created");
+        return app.exec();
     }
 
     // Modo GUI (interface gráfica)

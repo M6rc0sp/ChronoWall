@@ -152,10 +152,17 @@ void ChronoWallWindow::applySettings() {
         if(item) periods.append(item->getPeriod());
     }
     
+    // Atualizar serviço
     ChronoWallService::instance().updatePeriods(periods);
+    
+    // Forçar sincronização das configurações
+    SharedSettings::getInstance()->sync();
     
     QMessageBox::information(this, tr("Success"), 
         tr("Settings saved and applied successfully!"));
+    
+    // Forçar verificação imediata
+    ChronoWallService::instance().checkTime();
 }
 
 void ChronoWallWindow::loadSettings() {

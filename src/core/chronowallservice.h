@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include "chronoperiod.h"
 #include "settings.h"
+#include <QFileSystemWatcher>
 
 class ChronoWallService : public QObject {
     Q_OBJECT
@@ -21,12 +22,14 @@ public:
     void setImageList(const QStringList& images);
     const QStringList& imageList() const { return m_imageList; }
 
+    // Tornar público para permitir chamada externa
+    void checkTime();
+
 signals:
     void periodsChanged();
     void wallpaperChanged(const QString& path);
 
 private slots:
-    void checkTime();
     void updateWallpaper();
     void startTimer();
 
@@ -39,11 +42,13 @@ private:
     QStringList m_imageList;
     int m_currentImageIndex;
     int currentWallpaperIndex = 0;
+    QFileSystemWatcher* m_configWatcher;
     
     void setWallpaper(const QString& path);
     void loadSettings();
     void saveSettings();
     QString getCurrentPeriodWallpaper() const;
+    QString getCurrentSystemWallpaper() const;
     void switchToNextImage();
     bool isTimeInPeriod(const QTime& current, const QTime& start, const QTime& end) const;
     QTimer* timer;

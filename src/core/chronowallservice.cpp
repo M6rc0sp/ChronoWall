@@ -26,9 +26,32 @@ ChronoWallService::ChronoWallService() : QObject(nullptr) {
     qDebug() << QObject::tr("Starting ChronoWallService...");
     m_checkTimer = new QTimer(this);
     
-    // Sincronizar com o início do próximo minuto (segundo zero)
-    QTime currentTime = QTime::currentTime();
-    int msToNextMinute = (60 - currentTime.second()) * 1000 - currentTime.msec();
+    // Configurar watcher para monitorar alterações no arquivo de configuração
+    m_configWatcher = new QFileSystemWatcher(this);
+    QString configPath = SharedSettings::getConfigPath();
+    m_configWatcher->addPath(configPath);
+    
+    connect(m_configWatcher, &QFileSystemWatcher::fileChanged, this, [this, configPath]() {
+        qDebug() << QObject::tr("Config file changed, reloading settings...");
+        // Recarregar configurações
+        loadSettings();
+        // Verificar wallpaper imediatamente
+        checkTime();
+        // Readicionar o arquivo ao watcher (alguns sistemas removem após a primeira mudança)
+        if (!m_configWatcher->files().contains(configPath)) {
+            m_configWatcher->addPath(configPath);
+        }
+    });
+    
+    // Sincronizar com o início do próximo minuto (milissegundo zero)
+    QDateTime currentDateTime = QDateTime::currentDateTime();
+    QDateTime nextMinute = currentDateTime.addSecs(60);
+    nextMinute.setTime(QTime(nextMinute.time().hour(), nextMinute.time().minute(), 0, 0));
+    int msToNextMinute = currentDateTime.msecsTo(nextMinute);
+    
+    qDebug() << QObject::tr("Will sync at: %1 (in %2 ms)")
+               .arg(nextMinute.toString("HH:mm:ss.zzz"))
+               .arg(msToNextMinute);
     
     // Timer inicial para sincronizar com o segundo zero
     QTimer::singleShot(msToNextMinute, this, [this]() {
@@ -55,15 +78,25 @@ void ChronoWallService::checkTime() {
     qDebug() << QObject::tr("Checking time at: %1").arg(currentTime.toString("HH:mm:ss"));
     
     QString newWallpaper = getCurrentPeriodWallpaper();
+    QString currentSystemWallpaper = getCurrentSystemWallpaper();
+    
+    qDebug() << QObject::tr("Current system wallpaper: %1").arg(currentSystemWallpaper);
+    qDebug() << QObject::tr("Current cached wallpaper: %1").arg(m_currentWallpaper);
+    qDebug() << QObject::tr("New wallpaper to set: %1").arg(newWallpaper);
+    
+    // Forçar recarga das configurações antes de verificar
+    loadSettings();
     
     if (newWallpaper.isEmpty()) {
         qDebug() << QObject::tr("No wallpaper defined for current time");
-    } else if (newWallpaper != m_currentWallpaper) {
-        qDebug() << QObject::tr("Changing wallpaper to: %1").arg(newWallpaper);
+    } else if (newWallpaper != currentSystemWallpaper) {
+        qDebug() << QObject::tr("Changing wallpaper from: %1 to: %2")
+                   .arg(currentSystemWallpaper)
+                   .arg(newWallpaper);
         setWallpaper(newWallpaper);
         m_currentWallpaper = newWallpaper;
     } else {
-        qDebug() << QObject::tr("Current wallpaper is up to date");
+        qDebug() << QObject::tr("Current wallpaper is already set to: %1").arg(currentSystemWallpaper);
     }
 }
 
@@ -85,9 +118,37 @@ QString ChronoWallService::getCurrentPeriodWallpaper() const {
     return QString();
 }
 
+QString ChronoWallService::getCurrentSystemWallpaper() const {
+    QString wallpaperPath;
+    QString desktopEnv = qgetenv("XDG_CURRENT_DESKTOP");
+
+    if (desktopEnv.contains("GNOME", Qt::CaseInsensitive)) {
+        QProcess process;
+        process.start("gsettings", {"get", "org.gnome.desktop.background", "picture-uri"});
+        process.waitForFinished();
+        wallpaperPath = QString::fromUtf8(process.readAllStandardOutput()).trimmed();
+        
+        // Remove 'file://' prefix se existir
+        if (wallpaperPath.startsWith("'file://")) {
+            wallpaperPath = wallpaperPath.mid(8, wallpaperPath.length() - 9);
+        }
+        
+        qDebug() << QObject::tr("GNOME current wallpaper path: %1").arg(wallpaperPath);
+    }
+    // Adicionar suporte para outros ambientes desktop aqui se necessário
+    
+    return wallpaperPath;
+}
+
 void ChronoWallService::setWallpaper(const QString& path) {
     if (path.isEmpty()) {
         qWarning() << QObject::tr("Empty wallpaper path.");
+        return;
+    }
+
+    QString currentWallpaper = getCurrentSystemWallpaper();
+    if (currentWallpaper == path) {
+        qDebug() << QObject::tr("Wallpaper is already set to: %1").arg(path);
         return;
     }
 
@@ -99,8 +160,19 @@ void ChronoWallService::setWallpaper(const QString& path) {
                                                       "picture-uri", "file://" + path});
         success &= QProcess::startDetached("gsettings", {"set", "org.gnome.desktop.background", 
                                                        "picture-uri-dark", "file://" + path});
-        qDebug() << QObject::tr("GNOME wallpaper change: %1").arg(success ? "success" : "failed");
+        qDebug() << QObject::tr("GNOME wallpaper change attempt: %1").arg(success ? "success" : "failed");
 
+        // Verificar se a mudança foi efetiva
+        QString newWallpaper = getCurrentSystemWallpaper();
+        if (newWallpaper == path) {
+            qDebug() << QObject::tr("Wallpaper change confirmed successful");
+            success = true;
+        } else {
+            qWarning() << QObject::tr("Wallpaper change failed. Current: %1, Expected: %2")
+                        .arg(newWallpaper)
+                        .arg(path);
+            success = false;
+        }
     } else if (desktopEnv.contains("KDE", Qt::CaseInsensitive)) {
         QString script = QString(
             "var allDesktops = desktops();"
@@ -124,48 +196,71 @@ void ChronoWallService::setWallpaper(const QString& path) {
     }
 
     if (success) {
+        m_currentWallpaper = path;
         emit wallpaperChanged(path);
     }
 }
 
 void ChronoWallService::loadSettings() {
-    QSettings settings("ChronoWall", "Settings");
-    if (settings.status() != QSettings::NoError) {
+    qDebug() << QObject::tr("Reloading settings...");
+    QSettings* settings = SharedSettings::getInstance();
+    settings->sync(); // Forçar recarga do arquivo
+    
+    if (settings->status() != QSettings::NoError) {
         qWarning() << QObject::tr("Failed to load settings. Using default values.");
         return;
     }
-
     m_periods.clear();
-    int size = settings.beginReadArray("periods");
+    int size = settings->beginReadArray("periods");
+    qDebug() << QObject::tr("Loading %1 periods from settings file: %2")
+               .arg(size)
+               .arg(settings->fileName());
+
     for (int i = 0; i < size; ++i) {
-        settings.setArrayIndex(i);
+        settings->setArrayIndex(i);
         ChronoPeriod period;
-        period.startTime = settings.value("startTime").toTime();
-        period.endTime = settings.value("endTime").toTime();
-        period.wallpaper = settings.value("wallpaper").toString();
+        period.startTime = settings->value("startTime").toTime();
+        period.endTime = settings->value("endTime").toTime();
+        period.wallpaper = settings->value("wallpaper").toString();
+
+        qDebug() << QObject::tr("Reading period %1:").arg(i)
+                 << QObject::tr("\n - Start: %1").arg(period.startTime.toString("HH:mm:ss"))
+                 << QObject::tr("\n - End: %1").arg(period.endTime.toString("HH:mm:ss"))
+                 << QObject::tr("\n - Wallpaper: %1").arg(period.wallpaper);
 
         if (period.isValid()) {
             m_periods.append(period);
+            qDebug() << QObject::tr("Period %1 is valid and added").arg(i);
+        } else {
+            qWarning() << QObject::tr("Period %1 is invalid and skipped").arg(i);
         }
     }
-    settings.endArray();
+    settings->endArray();
+
+    qDebug() << QObject::tr("Total periods loaded: %1").arg(m_periods.size());
 }
 
 void ChronoWallService::saveSettings() {
-    QSettings settings("ChronoWall", "Settings");
-    settings.beginWriteArray("periods");
+    QSettings* settings = SharedSettings::getInstance();
+    settings->beginWriteArray("periods");
     
-    for (int i = 0; i < m_periods.size(); ++i) {
+    for (int i = 0; i < m_periods.size(); ++i) {   
         if (!m_periods[i].isValid()) continue;
-        
-        settings.setArrayIndex(i);
+        settings->setArrayIndex(i);
         QVariantMap periodMap = m_periods[i].toVariantMap();
-        settings.setValue("startTime", periodMap["startTime"]);
-        settings.setValue("endTime", periodMap["endTime"]);
-        settings.setValue("wallpaper", periodMap["wallpaper"]);
+        settings->setValue("startTime", periodMap["startTime"]);
+        settings->setValue("endTime", periodMap["endTime"]);
+        settings->setValue("wallpaper", periodMap["wallpaper"]);
+
+        qDebug() << QObject::tr("Saved period %1:").arg(i)
+                 << QObject::tr("\n - Start: %1").arg(m_periods[i].startTime.toString("HH:mm:ss"))
+                 << QObject::tr("\n - End: %1").arg(m_periods[i].endTime.toString("HH:mm:ss"))
+                 << QObject::tr("\n - Wallpaper: %1").arg(m_periods[i].wallpaper);
     }
-    settings.endArray();
-    settings.sync();
+    settings->endArray();
+    settings->sync();
+    
+    qDebug() << QObject::tr("Saved settings to: %1").arg(settings->fileName());
 }
 
 void ChronoWallService::setInterval(int milliseconds) {

@@ -1,114 +1,148 @@
 # ChronoWall
 
-Gerenciador automático de papel de parede que muda de acordo com períodos do dia.
+Time-based wallpaper manager that changes your desktop background automatically.
 
-## Compilando e Instalando
+## Building and Installing
 
-### Método Manual
+### Manual Method
 ```bash
-# Instalar dependências
+# Install dependencies
 sudo apt install build-essential cmake qt6-base-dev   # Debian/Ubuntu
 sudo dnf install cmake qt6-qtbase-devel              # Fedora/RHEL
 sudo pacman -S cmake qt6-base                        # Arch Linux
 
-# Clonar e compilar
+# Clone and build
 git clone https://github.com/m6rc0sp/chronowall.git
 cd chronowall
 mkdir build && cd build
 cmake ..
 make -j$(nproc)
 
-# Instalar
+# Install
 sudo make install
 ```
 
-## Configuração Inicial
+## Initial Setup
 
-1. Instalar o serviço (primeira vez):
+1. Install service (first time):
 ```bash
 chronowall --install
 ```
 
-2. Verificar status do serviço:
+2. Check service status:
 ```bash
 systemctl --user status chronowall
 ```
 
-3. Ver logs em tempo real:
+3. View real-time logs:
 ```bash
 journalctl --user -f -u chronowall
 ```
 
-## Uso
+## Usage
 
-O ChronoWall pode ser executado de três formas:
+ChronoWall can be run in three ways:
 
-1. Interface Gráfica:
+1. Graphical Interface:
 ```bash
 chronowall
 ```
 
-2. Modo Daemon:
+2. Daemon Mode:
 ```bash
 chronowall --daemon
 ```
 
-3. Através do menu de aplicativos (ChronoWall)
+3. Through the applications menu (ChronoWall)
 
-O aplicativo continuará rodando em segundo plano na bandeja do sistema.
+The application will continue running in the system tray.
 
-## Estrutura do Projeto
+## Project Structure
 
 ```
 chronowall/
 ├── src/
-│   ├── core/           # Lógica principal
-│   ├── ui/            # Interface do usuário
-│   ├── utils/         # Utilitários
+│   ├── core/           # Core logic
+│   ├── ui/            # User interface
+│   ├── utils/         # Utilities
 │   └── main.cpp
-├── resources/         # Recursos do sistema
+├── resources/         # System resources
 └── CMakeLists.txt
 ```
 
-## Empacotamento
+## Packaging and Installation
 
-### Debian/Ubuntu (deb)
+### Simplified Method (Recommended)
+```bash
+# Give execution permission to script (first time only)
+chmod +x packaging/rpm/build.sh
+
+# Build RPM
+packaging/rpm/build.sh
+
+# The RPM will be generated in pasta_to_build/rpmbuild/RPMS/x86_64/
+```
+
+### Manual Method
+
+#### Debian/Ubuntu (deb)
 ```bash
 cd packaging/debian
 dpkg-buildpackage -b -us -uc
 ```
 
-### Fedora/RHEL (rpm)
+#### Fedora/RHEL (rpm)
 ```bash
-cd packaging/rpm
-rpmbuild -ba chronowall.spec
+# Create rpmbuild structure if needed
+mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+
+# Copy spec file
+cp packaging/rpm/chronowall.spec ~/rpmbuild/SPECS/
+
+# Create source file
+tar czf ~/rpmbuild/SOURCES/chronowall-1.0.0.tar.gz .
+
+# Build RPM
+rpmbuild -ba ~/rpmbuild/SPECS/chronowall.spec
+
+# Install
+sudo dnf install ~/rpmbuild/RPMS/x86_64/chronowall-1.0.0-1*.rpm
 ```
 
-### Arch Linux
+#### Arch Linux (PKGBUILD) (Not tested yet)
 ```bash
+# Enter Arch packaging directory
 cd packaging/arch
+
+# Build and install
 makepkg -si
+
+# Or just build
+makepkg -s
+
+# Install manually if built separately
+sudo pacman -U chronowall-1.0.0-1-x86_64.pkg.tar.zst
 ```
 
-## Desinstalação
+## Uninstallation
 
-1. Parar e desabilitar o serviço:
+1. Stop and disable service:
 ```bash
 systemctl --user stop chronowall
 systemctl --user disable chronowall
 ```
 
-2. Remover arquivos:
+2. Remove files:
 ```bash
-sudo make uninstall    # Se instalado via make
+sudo make uninstall    # If installed via make
 ```
 
-3. Limpar configurações (opcional):
+3. Clean configurations (optional):
 ```bash
 rm -rf ~/.config/chronowall
 rm -rf ~/.cache/chronowall
 ```
 
-## Contribuindo
+## Contributing
 
-Sinta-se à vontade para abrir issues ou enviar pull requests!
+Feel free to open issues or send pull requests!
