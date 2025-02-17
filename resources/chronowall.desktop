@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=ChronoWall
+GenericName=Wallpaper Time Scheduler
+Comment=Schedule wallpaper changes based on time
+Exec=chronowall
+Icon=chronowall
+Terminal=false
+Categories=Utility;DesktopSettings;Qt;

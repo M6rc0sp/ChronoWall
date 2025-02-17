@@ -1,0 +1,22 @@
+#!/usr/bin/make -f
+
+# Desativar regras padrão desnecessárias
+export DH_VERBOSE = 1
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+export DEB_CFLAGS_MAINT_APPEND  = -Wall -pedantic
+export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
+
+%:
+	dh $@ --buildsystem=cmake
+
+override_dh_auto_configure:
+	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release
+
+override_dh_auto_install:
+	dh_auto_install
+	mkdir -p debian/chronowall/usr/share/applications
+	cp resources/chronowall.desktop debian/chronowall/usr/share/applications/
+
+override_dh_installdeb:
+	dh_installdeb
+	chmod 755 debian/chronowall/DEBIAN/postrm

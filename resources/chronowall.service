@@ -1,0 +1,18 @@
+[Unit]
+Description=ChronoWall - Wallpaper Time Scheduler
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/chronowall --daemon
+Restart=on-failure
+RestartSec=5
+StartLimitInterval=60
+StartLimitBurst=3
+# Removido User e Group pois causam problemas
+Environment=DISPLAY=:0
+# Removido XAUTHORITY pois pode causar problemas
+# Removido DBUS_SESSION_BUS_ADDRESS pois é gerenciado pelo systemd
+
+[Install]
+WantedBy=graphical-session.target

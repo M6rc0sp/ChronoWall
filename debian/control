@@ -1,0 +1,25 @@
+Source: chronowall
+Section: x11
+Priority: optional
+Maintainer: Marcos Barbosa <paulo.marcos0108@live.com>
+Build-Depends: debhelper-compat (= 13),
+               cmake,
+               qt6-base-dev,
+               libqt6widgets6,
+               qt6-base-dev-tools,
+               libqt6dbus6
+Standards-Version: 4.6.0
+Rules-Requires-Root: no
+
+Package: chronowall
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         libqt6widgets6,
+         libqt6core6,
+         libqt6gui6,
+         libqt6dbus6
+Description: Gerenciador de papel de parede baseado em tempo
+ ChronoWall permite configurar diferentes papéis de parede
+ para diferentes períodos do dia, mudando automaticamente
+ conforme o horário.

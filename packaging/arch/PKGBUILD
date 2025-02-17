@@ -1,0 +1,28 @@
+# Maintainer: Marcos Barbosa <paulo.marcos0108@live.com>
+
+pkgname=chronowall
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Gerenciador de papel de parede baseado em tempo"
+arch=('x86_64')
+url="https://github.com/m6rc0sp/chronowall"
+license=('MIT')
+depends=('qt6-base')
+makedepends=('cmake')
+source=("git+https://github.com/m6rc0sp/chronowall.git")
+sha256sums=('SKIP')
+
+build() {
+    cd "$srcdir/$pkgname"
+    mkdir -p build
+    cd build
+    cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr
+    make
+}
+
+package() {
+    cd "$srcdir/$pkgname/build"
+    make DESTDIR="$pkgdir/" install
+}

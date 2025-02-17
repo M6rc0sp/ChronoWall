@@ -1,0 +1,12 @@
+chronowall (1.0.0-1) unstable; urgency=medium
+
+  * Versão inicial
+  * Funcionalidades básicas:
+    - Interface gráfica para configuração
+    - Serviço systemd para execução em background
+    - Suporte a múltiplos períodos do dia
+    - Detecção automática de display
+    - Cache de thumbnails
+    - Suporte a GNOME e KDE
+
+ -- Marcos Barbosa <paulo.marcos0108@live.com>  Wed, 15 Dec 2025 19:20:30 -0300
